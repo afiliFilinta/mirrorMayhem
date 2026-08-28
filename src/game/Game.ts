@@ -32,9 +32,9 @@ import { AudioDirector } from "../audio/AudioDirector";
 
 const template = arenaTemplateData as ArenaMap;
 const mirrorColors: Record<MirrorType, string> = {
-  STANDARD: "#b9d3c2",
-  SPLITTER: "#d8a53b",
-  EXPLOSIVE: "#8f729d",
+  STANDARD: "#6faaa0",
+  SPLITTER: "#dda73f",
+  EXPLOSIVE: "#9871a3",
 };
 
 const COMBATANT_ART_WIDTH = 44;
@@ -141,7 +141,7 @@ export class Game {
 
     if (kind === "mirror") {
       const mirrorTypes: MirrorType[] = ["STANDARD", "SPLITTER", "EXPLOSIVE"];
-      const length = Math.min(this.arena.width, this.arena.height) * 0.115 * this.arenaSettings.mirrorScale;
+      const length = this.arena.width * 0.12 * this.arenaSettings.mirrorScale;
       const angle = (index % 6) * Math.PI / 6;
       const half = scale(fromAngle(angle), length / 2);
       const mirror: ArenaMap["mirrors"][number] = {
@@ -777,32 +777,26 @@ export class Game {
 
   private drawBackground(): void {
     this.p.push();
-    this.p.background("#e9c979");
+    this.p.background("#ead89f");
     this.p.noStroke();
-    this.p.fill("#d98f7a"); this.p.rect(0, 0, this.arena.width, 118);
-    this.p.fill("#f2dfad"); this.p.rect(0, 118, this.arena.width, this.arena.height - 118);
-    this.p.fill("#6d9b8f"); this.p.rect(0, 118, this.arena.width, 11);
+    this.p.fill("#d98f7a"); this.p.rect(0, 0, this.arena.width, 108);
+    this.p.fill("#6d9b8f"); this.p.rect(0, 108, this.arena.width, 9);
 
-    const tile = 100;
-    for (let row = 0, y = 129; y < this.arena.height; row += 1, y += tile) {
+    const tile = 82;
+    for (let row = 0, y = 117; y < this.arena.height; row += 1, y += tile) {
       for (let column = 0, x = 0; x < this.arena.width; column += 1, x += tile) {
-        this.p.fill((column + row) % 2 === 0 ? "#efd9a3" : "#e5cc92");
+        this.p.fill((column + row) % 2 === 0 ? "#f1e2b5" : "#ead89f");
         this.p.rect(x, y, tile, tile);
       }
     }
-    this.p.stroke("#d1ad72"); this.p.strokeWeight(1);
-    for (let x = 0; x <= this.arena.width; x += tile) this.p.line(x, 129, x, this.arena.height);
-    for (let y = 129; y <= this.arena.height; y += tile) this.p.line(0, y, this.arena.width, y);
+    this.p.stroke("#d4b97d"); this.p.strokeWeight(1);
+    for (let x = 0; x <= this.arena.width; x += tile) this.p.line(x, 117, x, this.arena.height);
+    for (let y = 117; y <= this.arena.height; y += tile) this.p.line(0, y, this.arena.width, y);
 
-    this.p.noStroke(); this.p.fill("#c76f67"); this.p.rect(455, 26, 290, 82, 42, 42, 0, 0);
-    this.p.fill("#573b32"); this.p.rect(480, 46, 240, 62, 30, 30, 0, 0);
-    this.p.fill("#f1d589"); this.p.circle(600, 72, 30);
-    this.p.fill("#d98f7a"); this.p.circle(600, 72, 13);
-    for (const x of [68, 1052]) {
-      this.p.fill("#6d9b8f"); this.p.rect(x, 34, 80, 74, 5, 5, 0, 0);
-      this.p.fill("#2e5c59"); this.p.rect(x + 12, 47, 56, 61, 3, 3, 0, 0);
-      this.p.fill("#f2dfad"); this.p.circle(x + (x < 600 ? 62 : 18), 80, 7);
-    }
+    this.p.noStroke(); this.p.fill("#c76f67"); this.p.rect(462, 26, 276, 82, 40, 40, 0, 0);
+    this.p.fill("#573b32"); this.p.rect(488, 47, 224, 61, 28, 28, 0, 0);
+    this.p.fill("#e8c66d"); this.p.circle(600, 72, 27);
+    this.p.fill("#d98f7a"); this.p.circle(600, 72, 11);
 
     this.p.noFill(); this.p.stroke("#573b32"); this.p.strokeWeight(4);
     this.p.rect(20, 20, this.arena.width - 40, this.arena.height - 40, 8);
@@ -874,41 +868,31 @@ export class Game {
       const center = { x: (mirror.start.x + mirror.end.x) / 2, y: (mirror.start.y + mirror.end.y) / 2 };
       const length = distance(mirror.start, mirror.end);
       const angle = Math.atan2(mirror.end.y - mirror.start.y, mirror.end.x - mirror.start.x);
-      const frameWidth = this.p.constrain(length * 0.24, 30, 42);
       const turning = this.mirrorTurnFlashes.get(mirror.id) ?? 0;
       const glow = this.p.color(color); glow.setAlpha(48 + turning * 380);
-      this.p.stroke(glow); this.p.strokeWeight(frameWidth + 21 + turning * 15); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
-      this.p.push(); this.p.translate(center.x, center.y); this.p.rotate(angle - Math.PI / 2);
-      this.p.rectMode(this.p.CENTER);
-      this.p.noStroke(); this.p.fill(87, 59, 50, 55); this.p.ellipse(5, length * .51, frameWidth + 24, 13);
-      this.p.fill("#573b32"); this.p.rect(0, 0, frameWidth + 13, length + 22, 18);
-      this.p.fill("#e3b85f"); this.p.rect(0, 0, frameWidth + 7, length + 16, 16);
-      this.p.fill(color); this.p.rect(0, 0, frameWidth - 1, length + 8, 13);
-      this.p.fill(mirror.type === "STANDARD" ? "#cfe7df" : mirror.type === "SPLITTER" ? "#f5df9e" : "#d7c7de");
-      this.p.rect(0, 0, frameWidth - 10, length - 3, 10);
+      this.p.stroke(glow); this.p.strokeWeight(18 + turning * 22); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
+      this.p.stroke(87, 59, 50, 42); this.p.strokeWeight(12); this.p.line(mirror.start.x + 5, mirror.start.y + 5, mirror.end.x + 5, mirror.end.y + 5);
+      this.p.stroke("#573b32"); this.p.strokeWeight(10); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
+      this.p.stroke("#d9ac59"); this.p.strokeWeight(6); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
+      this.p.stroke(color); this.p.strokeWeight(2.5); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
 
-      // Brass pivots make the mirror's new gameplay role visible at a glance.
-      this.p.fill("#573b32"); this.p.circle(-frameWidth * .63, 0, 12); this.p.circle(frameWidth * .63, 0, 12);
-      this.p.fill("#f4d88c"); this.p.circle(-frameWidth * .63, 0, 6); this.p.circle(frameWidth * .63, 0, 6);
-      this.p.fill(255, 255, 255, 125);
-      this.p.quad(-frameWidth * .22, -length * .38, frameWidth * .02, -length * .44, frameWidth * .18, length * .17, -frameWidth * .09, length * .27);
+      this.p.push(); this.p.translate(center.x, center.y); this.p.rotate(angle);
+      for (const endX of [-length / 2, length / 2]) {
+        this.p.stroke("#573b32"); this.p.strokeWeight(2); this.p.fill("#d9ac59"); this.p.circle(endX, 0, 13);
+        this.p.noStroke(); this.p.fill(color); this.p.circle(endX, 0, 5);
+      }
+      this.p.stroke("#573b32"); this.p.strokeWeight(2); this.p.fill("#f0d083"); this.p.circle(0, 0, 12);
+      this.p.noStroke(); this.p.fill(color); this.p.circle(0, 0, 5);
       if (mirror.type === "SPLITTER") {
-        this.p.stroke("#8b622e"); this.p.strokeWeight(3); this.p.noFill();
-        this.p.line(0, -18, 0, -2); this.p.line(0, -2, -9, 13); this.p.line(0, -2, 9, 13);
-        this.p.line(-9, 13, -10, 6); this.p.line(-9, 13, -3, 11);
-        this.p.line(9, 13, 10, 6); this.p.line(9, 13, 3, 11);
+        this.p.fill("#573b32"); this.p.quad(0, -7, 7, 0, 0, 7, -7, 0);
+        this.p.fill(color); this.p.circle(-2, 0, 3); this.p.circle(3, 0, 3);
       } else if (mirror.type === "EXPLOSIVE") {
-        const pulse = 22 + Math.sin(this.p.millis() * 0.006) * 4;
-        this.p.noFill(); this.p.stroke("#8f729d"); this.p.strokeWeight(3); this.p.circle(0, 0, pulse);
-        this.p.stroke("#684a70"); this.p.strokeWeight(2);
+        const pulse = 22 + Math.sin(this.p.millis() * 0.006) * 3;
+        this.p.noFill(); this.p.stroke(color); this.p.strokeWeight(2); this.p.circle(0, 0, pulse);
         for (let ray = 0; ray < 6; ray += 1) {
           const rayAngle = ray * Math.PI / 3;
-          this.p.line(Math.cos(rayAngle) * 3, Math.sin(rayAngle) * 3, Math.cos(rayAngle) * 12, Math.sin(rayAngle) * 12);
+          this.p.line(Math.cos(rayAngle) * 4, Math.sin(rayAngle) * 4, Math.cos(rayAngle) * 10, Math.sin(rayAngle) * 10);
         }
-        this.p.noStroke(); this.p.fill("#573b32"); this.p.circle(0, 0, 6);
-      } else {
-        this.p.stroke("#6d9b8f"); this.p.strokeWeight(2); this.p.noFill();
-        this.p.arc(0, 0, 18, 18, -.7, 2.2);
       }
       this.p.pop();
     }

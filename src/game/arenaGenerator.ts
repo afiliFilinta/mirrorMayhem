@@ -61,7 +61,7 @@ const createMirrors = (
     const ratio = topCount === 1 ? 0.5 : index / (topCount - 1);
     return (ratio - 0.5) * template.width * 0.48 * spread;
   });
-  const mirrorLength = Math.min(template.width, template.height) * 0.115 * settings.mirrorScale;
+  const mirrorLength = template.width * 0.12 * settings.mirrorScale;
 
   const topCenters = xOffsets.map((xOffset) => {
     const ellipseHeight = verticalRadius * Math.sqrt(1 - (xOffset * xOffset) / (horizontalRadius * horizontalRadius));
