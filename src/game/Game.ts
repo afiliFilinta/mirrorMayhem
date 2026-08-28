@@ -40,6 +40,7 @@ const mirrorColors: Record<MirrorType, string> = {
 const COMBATANT_ART_WIDTH = 44;
 const COMBATANT_ART_HEIGHT = 63;
 const FIRE_ANIMATION_TIME = 0.28;
+const assetUrl = (path: string): string => `${import.meta.env.BASE_URL}${path.replace(/^\//, "")}`;
 
 type CombatantAnimation = {
   movement: number;
@@ -252,8 +253,8 @@ export class Game {
 
   private async loadAssets(): Promise<void> {
     [this.playerArt, this.botArt] = await Promise.all([
-      this.p.loadImage("/assets/manor/magician-player.png"),
-      this.p.loadImage("/assets/manor/magician-bot.png"),
+      this.p.loadImage(assetUrl("assets/manor/magician-player.png")),
+      this.p.loadImage(assetUrl("assets/manor/magician-bot.png")),
     ]);
     this.assetsReady = true;
   }
