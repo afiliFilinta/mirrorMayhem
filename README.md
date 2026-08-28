@@ -27,7 +27,7 @@ Kurulum ekranı otomatik bir arena taslağı üretir; mobilyalar ve aynalar düe
 - Karakterler: tüy, ay ve yıldız armaları taşıyan; asa yönü küçük ölçekte dahi okunan rakip illüzyonistler
 - Engeller: büyü kitaplığı, capitonné kadife şezlong ve çalışan sarkaçlı büyükbaba saati
 - Aynalar: gümüş yansıtıcı, kehribar prizmatik bölücü ve çatlak mor lanetli ayna
-- Arena: simetrik balo salonu, baklava taş zemin, pirinç çerçeveler, kadife perdeler ve merkez madalyonu
+- Arena: simetrik yerleşim, baklava taş zemin, pastel renk blokları ve ölçülü geometrik detaylar
 - Seçilen konsept panosu: [`art/theme-concepts/02-enchanted-manor.png`](art/theme-concepts/02-enchanted-manor.png)
 
 Oyunda kullanılan balo salonu, illüzyonistler, aynalar ve mobilyalar seçilen konsept panosundan türetilmiş projeye özel PNG varlıklarıdır ve `public/assets/manor` altında oyuna doğrudan yüklenir. Üçüncü taraf sprite, oyun karakteri, marka, logo veya stok görsel kullanılmaz. Işınlar, HUD ve hareketli efektler p5.js ile çalışma anında çizilir.

@@ -91,9 +91,9 @@ const createFurniture = (
   settings: ArenaSettings,
 ): Wall[] => {
   const baseSizes = [
-    { name: "bookcase", width: 150, height: 82 },
-    { name: "chaise", width: 112, height: 62 },
-    { name: "clock", width: 60, height: 102 },
+    { name: "sofa", width: 142, height: 66 },
+    { name: "round-table", width: 78, height: 78 },
+    { name: "luggage-cart", width: 104, height: 62 },
   ];
   const anchors: Record<ArenaSettings["layout"], Vector2[]> = {
     MAZE: [
@@ -101,8 +101,9 @@ const createFurniture = (
       { x: .5, y: .36 }, { x: .71, y: .36 }, { x: .71, y: .64 },
     ],
     BALANCED: [
-      { x: .5, y: .5 }, { x: .28, y: .4 }, { x: .72, y: .6 },
-      { x: .37, y: .64 }, { x: .63, y: .36 }, { x: .5, y: .7 },
+      { x: .39, y: .36 }, { x: .61, y: .64 },
+      { x: .61, y: .36 }, { x: .39, y: .64 },
+      { x: .5, y: .36 }, { x: .5, y: .64 },
     ],
     OPEN: [
       { x: .5, y: .36 }, { x: .5, y: .64 }, { x: .3, y: .5 },
@@ -113,13 +114,15 @@ const createFurniture = (
       { x: .64, y: .38 }, { x: .35, y: .65 }, { x: .8, y: .48 },
     ],
   };
-  const jitter = settings.layout === "CHAOTIC" ? 18 : 8;
+  const jitter = settings.layout === "CHAOTIC" ? 18 : 3;
 
   const placed: Wall[] = [];
   Array.from({ length: Math.max(0, Math.round(settings.furnitureCount)) }, (_, index) =>
     anchors[settings.layout][index % anchors[settings.layout].length]
   ).forEach((anchor, index) => {
-    const base = baseSizes[index % baseSizes.length];
+    const base = settings.layout === "BALANCED"
+      ? baseSizes[Math.floor(index / 2) % baseSizes.length]
+      : baseSizes[index % baseSizes.length];
     const width = base.width * settings.furnitureScale;
     const height = base.height * settings.furnitureScale;
     const spreadX = (anchor.x - .5) * settings.layoutSpread + .5;

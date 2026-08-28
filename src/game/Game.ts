@@ -62,26 +62,26 @@ export class Game {
   private botDestination: Vector2 = { x: 0, y: 0 };
   private botDestinationRemaining = 0;
   private botAimAngle = Math.PI;
+  private botMirrorTurnRemaining = 2.8;
   private debug = false;
   private previousF1 = false;
-  private backgroundArt!: p5.Image;
   private playerArt!: p5.Image;
   private botArt!: p5.Image;
-  private standardMirrorArt!: p5.Image;
-  private splitterMirrorArt!: p5.Image;
-  private explosiveMirrorArt!: p5.Image;
-  private bookcaseArt!: p5.Image;
-  private chaiseArt!: p5.Image;
-  private clockArt!: p5.Image;
   private assetsReady = false;
   private soundedImpacts = new WeakMap<VisibleShot, Set<string>>();
   private readonly pressedMovementKeys = new Set<string>();
   private started = false;
-  private arenaSettings: ArenaSettings = { ...DEFAULT_ARENA_SETTINGS };
+  private arenaSettings: ArenaSettings = {
+    ...DEFAULT_ARENA_SETTINGS,
+    mirrorCount: 3,
+    furnitureCount: 6,
+    layout: "BALANCED",
+  };
   private arenaSeed = Math.floor(Math.random() * 2147483646) + 1;
   private editorSelection: EditorSelection | null = null;
   private editorDragging = false;
   private editorObjectSequence = 0;
+  private mirrorTurnFlashes = new Map<string, number>();
   private combatantAnimations: Record<Combatant["id"], CombatantAnimation> = {
     player: { movement: 0, stepPhase: 0, fireRemaining: 0 },
     bot: { movement: 0, stepPhase: Math.PI, fireRemaining: 0 },
@@ -154,9 +154,9 @@ export class Game {
       this.editorSelection = { kind: "mirror", id: mirror.id, offset: { x: 0, y: 0 } };
     } else {
       const furniture = [
-        { name: "bookcase", width: 150, height: 82 },
-        { name: "chaise", width: 112, height: 62 },
-        { name: "clock", width: 60, height: 102 },
+        { name: "sofa", width: 142, height: 66 },
+        { name: "round-table", width: 78, height: 78 },
+        { name: "luggage-cart", width: 104, height: 62 },
       ][index % 3];
       const wall: Wall = {
         id: `${furniture.name}-custom-${this.editorObjectSequence}`,
@@ -228,6 +228,8 @@ export class Game {
     this.botDecisionRemaining = 1.2;
     this.botDestination = this.pickBotDestination();
     this.botDestinationRemaining = this.p.random(1.8, 3.8);
+    this.botMirrorTurnRemaining = this.p.random(2.4, 3.8);
+    this.mirrorTurnFlashes.clear();
     this.combatantAnimations = {
       player: { movement: 0, stepPhase: 0, fireRemaining: 0 },
       bot: { movement: 0, stepPhase: Math.PI, fireRemaining: 0 },
@@ -249,35 +251,18 @@ export class Game {
   }
 
   private async loadAssets(): Promise<void> {
-    [
-      this.backgroundArt,
-      this.playerArt,
-      this.botArt,
-      this.standardMirrorArt,
-      this.splitterMirrorArt,
-      this.explosiveMirrorArt,
-      this.bookcaseArt,
-      this.chaiseArt,
-      this.clockArt,
-    ] = await Promise.all([
-      this.p.loadImage("/assets/manor/ballroom-background.png"),
+    [this.playerArt, this.botArt] = await Promise.all([
       this.p.loadImage("/assets/manor/magician-player.png"),
       this.p.loadImage("/assets/manor/magician-bot.png"),
-      this.p.loadImage("/assets/manor/mirror-standard.png"),
-      this.p.loadImage("/assets/manor/mirror-splitter.png"),
-      this.p.loadImage("/assets/manor/mirror-explosive.png"),
-      this.p.loadImage("/assets/manor/obstacle-bookcase.png"),
-      this.p.loadImage("/assets/manor/obstacle-chaise.png"),
-      this.p.loadImage("/assets/manor/obstacle-clock.png"),
     ]);
     this.assetsReady = true;
   }
 
   private drawLoading(): void {
-    this.p.background("#34251f");
-    this.p.noStroke(); this.p.fill("#e5cf9f"); this.p.textFont("Georgia");
+    this.p.background("#e9c979");
+    this.p.noStroke(); this.p.fill("#573b32"); this.p.textFont("Georgia");
     this.p.textAlign(this.p.CENTER, this.p.CENTER); this.p.textSize(18);
-    this.p.text("MALİKÂNENİN PERDELERİ AÇILIYOR…", template.width / 2, template.height / 2);
+    this.p.text("OYUN HAZIRLANIYOR…", template.width / 2, template.height / 2);
   }
 
   handleMousePressed(event?: Event): boolean {
@@ -350,6 +335,11 @@ export class Game {
       else this.reset();
       return false;
     }
+    const key = this.p.key.toLowerCase();
+    if (this.status === "PLAYING" && (key === "q" || key === "e")) {
+      this.rotateNearbyMirror(this.player, key === "q" ? -1 : 1);
+      return false;
+    }
     return true;
   }
 
@@ -373,6 +363,11 @@ export class Game {
     for (const combatant of [this.player, this.bot]) {
       combatant.cooldownRemaining = Math.max(0, combatant.cooldownRemaining - dt);
       combatant.flashRemaining = Math.max(0, combatant.flashRemaining - dt);
+    }
+    for (const [id, remaining] of this.mirrorTurnFlashes) {
+      const next = remaining - dt;
+      if (next <= 0) this.mirrorTurnFlashes.delete(id);
+      else this.mirrorTurnFlashes.set(id, next);
     }
 
     for (const shot of this.shots) {
@@ -427,6 +422,18 @@ export class Game {
     this.moveCombatant(this.bot, scale(moveDirection, BOT_SPEED * dt));
     if (distance(before, this.bot.position) < 0.2) this.botDestinationRemaining = 0;
 
+    this.botMirrorTurnRemaining -= dt;
+    if (this.botMirrorTurnRemaining <= 0) {
+      const mirror = this.nearestMirror(this.bot, 112);
+      if (mirror) {
+        this.turnMirror(mirror, this.p.random() < 0.5 ? -1 : 1);
+        this.botMirrorTurnRemaining = this.p.random(2.8, 4.5);
+        this.botDestinationRemaining = 0;
+      } else {
+        this.botMirrorTurnRemaining = 0.55;
+      }
+    }
+
     this.botDecisionRemaining -= dt;
     if (this.botDecisionRemaining > 0) return;
     this.botDecisionRemaining = this.p.random(BOT_REACTION_MIN, BOT_REACTION_MAX);
@@ -449,6 +456,15 @@ export class Game {
   }
 
   private pickBotDestination(): Vector2 {
+    if (this.arena?.mirrors.length > 0 && this.p.random() < 0.42) {
+      const mirror = this.arena.mirrors[Math.floor(this.p.random(this.arena.mirrors.length))];
+      const center = this.mirrorCenter(mirror);
+      const tangent = normalize(subtract(mirror.end, mirror.start));
+      const normal = { x: -tangent.y, y: tangent.x };
+      const side = this.p.random() < 0.5 ? -1 : 1;
+      const candidate = add(center, scale(normal, side * 78));
+      if (!this.positionBlocked(candidate, this.bot?.radius ?? PLAYER_RADIUS)) return candidate;
+    }
     for (let attempt = 0; attempt < 30; attempt += 1) {
       const candidate = {
         x: this.p.random(90, this.arena.width - 90),
@@ -638,6 +654,7 @@ export class Game {
     for (const shot of this.shots) this.drawShot(shot);
     this.drawCombatant(this.player, this.mouseAimAngle(), this.playerArt);
     this.drawCombatant(this.bot, this.botAimAngle, this.botArt);
+    if (this.started && this.status === "PLAYING") this.drawMirrorInteractionHint();
     if (this.started) this.drawHud();
     else this.drawEditorOverlay();
     if (this.debug) this.drawDebug();
@@ -673,6 +690,29 @@ export class Game {
     }
     const mirror = this.arena.mirrors.find((item) => item.id === this.editorSelection?.id);
     if (!mirror) return;
+    this.rotateMirrorGeometry(mirror, angle);
+  }
+
+  private nearestMirror(combatant: Combatant, maximumDistance: number): ArenaMap["mirrors"][number] | undefined {
+    return this.arena.mirrors
+      .map((mirror) => ({ mirror, proximity: distance(combatant.position, this.mirrorCenter(mirror)) }))
+      .filter(({ proximity }) => proximity <= maximumDistance)
+      .sort((a, b) => a.proximity - b.proximity)[0]?.mirror;
+  }
+
+  private rotateNearbyMirror(combatant: Combatant, direction: -1 | 1): void {
+    const mirror = this.nearestMirror(combatant, 118);
+    if (!mirror) return;
+    this.turnMirror(mirror, direction);
+  }
+
+  private turnMirror(mirror: ArenaMap["mirrors"][number], direction: -1 | 1): void {
+    this.rotateMirrorGeometry(mirror, direction * Math.PI / 12);
+    this.mirrorTurnFlashes.set(mirror.id, 0.38);
+    this.audio.ricochet(mirror.type, this.panFor(this.mirrorCenter(mirror).x));
+  }
+
+  private rotateMirrorGeometry(mirror: ArenaMap["mirrors"][number], angle: number): void {
     const center = this.mirrorCenter(mirror);
     const half = scale(subtract(mirror.end, mirror.start), 0.5);
     const rotated = this.rotate(half, angle);
@@ -736,29 +776,94 @@ export class Game {
 
   private drawBackground(): void {
     this.p.push();
-    this.p.imageMode(this.p.CORNER);
-    this.p.image(this.backgroundArt, 0, 0, this.arena.width, this.arena.height);
-    this.p.noFill(); this.p.stroke(246, 220, 162, 95); this.p.strokeWeight(2);
-    this.p.rect(22, 22, this.arena.width - 44, this.arena.height - 44, 8);
+    this.p.background("#e9c979");
+    this.p.noStroke();
+    this.p.fill("#d98f7a"); this.p.rect(0, 0, this.arena.width, 118);
+    this.p.fill("#f2dfad"); this.p.rect(0, 118, this.arena.width, this.arena.height - 118);
+    this.p.fill("#6d9b8f"); this.p.rect(0, 118, this.arena.width, 11);
+
+    const tile = 100;
+    for (let row = 0, y = 129; y < this.arena.height; row += 1, y += tile) {
+      for (let column = 0, x = 0; x < this.arena.width; column += 1, x += tile) {
+        this.p.fill((column + row) % 2 === 0 ? "#efd9a3" : "#e5cc92");
+        this.p.rect(x, y, tile, tile);
+      }
+    }
+    this.p.stroke("#d1ad72"); this.p.strokeWeight(1);
+    for (let x = 0; x <= this.arena.width; x += tile) this.p.line(x, 129, x, this.arena.height);
+    for (let y = 129; y <= this.arena.height; y += tile) this.p.line(0, y, this.arena.width, y);
+
+    this.p.noStroke(); this.p.fill("#c76f67"); this.p.rect(455, 26, 290, 82, 42, 42, 0, 0);
+    this.p.fill("#573b32"); this.p.rect(480, 46, 240, 62, 30, 30, 0, 0);
+    this.p.fill("#f1d589"); this.p.circle(600, 72, 30);
+    this.p.fill("#d98f7a"); this.p.circle(600, 72, 13);
+    for (const x of [68, 1052]) {
+      this.p.fill("#6d9b8f"); this.p.rect(x, 34, 80, 74, 5, 5, 0, 0);
+      this.p.fill("#2e5c59"); this.p.rect(x + 12, 47, 56, 61, 3, 3, 0, 0);
+      this.p.fill("#f2dfad"); this.p.circle(x + (x < 600 ? 62 : 18), 80, 7);
+    }
+
+    this.p.noFill(); this.p.stroke("#573b32"); this.p.strokeWeight(4);
+    this.p.rect(20, 20, this.arena.width - 40, this.arena.height - 40, 8);
+    this.p.stroke("#fff1c7"); this.p.strokeWeight(2);
+    this.p.rect(29, 29, this.arena.width - 58, this.arena.height - 58, 6);
     this.p.pop();
   }
 
   private drawWalls(): void {
     for (const wall of this.arena.walls) {
-      if (wall.id.includes("bookcase")) this.drawFurniture(wall, this.bookcaseArt, 14, 10);
-      else if (wall.id.includes("chaise")) this.drawFurniture(wall, this.chaiseArt, 12, 10);
-      else this.drawFurniture(wall, this.clockArt, 10, 12);
+      this.drawFurniture(wall);
     }
   }
 
-  private drawFurniture(wall: Wall, image: p5.Image, overscanX: number, overscanY: number): void {
+  private drawFurniture(wall: Wall): void {
     this.p.push();
     this.p.translate(wall.x + wall.width / 2, wall.y + wall.height / 2);
     this.p.rotate(wall.rotation ?? 0);
-    this.p.imageMode(this.p.CENTER);
-    this.p.noStroke(); this.p.fill(50, 33, 24, 75);
-    this.p.ellipse(5, wall.height * 0.42, wall.width + overscanX, 18);
-    this.p.image(image, 0, 0, wall.width + overscanX, wall.height + overscanY);
+    this.p.noStroke(); this.p.fill(87, 59, 50, 42);
+    this.p.ellipse(7, wall.height * .43, wall.width + 18, 17);
+
+    if (wall.id.includes("round-table")) {
+      const diameter = Math.min(wall.width, wall.height);
+      this.p.stroke("#573b32"); this.p.strokeWeight(4); this.p.fill("#f4dda0");
+      this.p.circle(0, 0, diameter - 3);
+      this.p.stroke("#d98f7a"); this.p.strokeWeight(7); this.p.noFill();
+      this.p.circle(0, 0, diameter * .66);
+      this.p.noStroke(); this.p.fill("#6d9b8f"); this.p.circle(0, 0, diameter * .28);
+      this.p.fill("#f7e9bd");
+      for (let index = 0; index < 6; index += 1) {
+        const angle = index * Math.PI / 3;
+        this.p.circle(Math.cos(angle) * diameter * .25, Math.sin(angle) * diameter * .25, 6);
+      }
+    } else if (wall.id.includes("luggage-cart")) {
+      this.p.stroke("#573b32"); this.p.strokeWeight(4); this.p.fill("#e3b85f");
+      this.p.rect(-wall.width / 2, -wall.height / 2, wall.width, wall.height, 16);
+      this.p.stroke("#f7e9bd"); this.p.strokeWeight(3); this.p.noFill();
+      this.p.arc(0, -wall.height * .04, wall.width * .62, wall.height * 1.05, Math.PI, Math.PI * 2);
+      this.p.line(-wall.width * .31, 2, -wall.width * .31, wall.height * .3);
+      this.p.line(wall.width * .31, 2, wall.width * .31, wall.height * .3);
+      this.p.noStroke();
+      const cases = [
+        { x: -wall.width * .22, y: wall.height * .12, w: wall.width * .32, h: wall.height * .34, color: "#6d9b8f" },
+        { x: wall.width * .12, y: wall.height * .08, w: wall.width * .29, h: wall.height * .42, color: "#c76f67" },
+      ];
+      for (const suitcase of cases) {
+        this.p.fill("#573b32"); this.p.rect(suitcase.x - suitcase.w / 2 - 2, suitcase.y - suitcase.h / 2 - 2, suitcase.w + 4, suitcase.h + 4, 4);
+        this.p.fill(suitcase.color); this.p.rect(suitcase.x - suitcase.w / 2, suitcase.y - suitcase.h / 2, suitcase.w, suitcase.h, 3);
+      }
+      this.p.fill("#573b32"); this.p.circle(-wall.width * .31, wall.height * .45, 10); this.p.circle(wall.width * .31, wall.height * .45, 10);
+    } else {
+      this.p.stroke("#573b32"); this.p.strokeWeight(4); this.p.fill("#d98f7a");
+      this.p.rect(-wall.width / 2, -wall.height / 2, wall.width, wall.height, 18);
+      this.p.fill("#c76f67");
+      this.p.rect(-wall.width * .37, -wall.height * .34, wall.width * .74, wall.height * .42, 11);
+      this.p.stroke("#f7e9bd"); this.p.strokeWeight(2); this.p.noFill();
+      this.p.line(0, -wall.height * .3, 0, wall.height * .32);
+      for (const x of [-wall.width * .28, wall.width * .28]) this.p.arc(x, 4, wall.width * .22, wall.height * .42, Math.PI, Math.PI * 2);
+      this.p.noStroke(); this.p.fill("#573b32");
+      this.p.rect(-wall.width * .42, wall.height * .34, wall.width * .08, wall.height * .13, 2);
+      this.p.rect(wall.width * .34, wall.height * .34, wall.width * .08, wall.height * .13, 2);
+    }
     this.p.pop();
   }
 
@@ -768,19 +873,60 @@ export class Game {
       const center = { x: (mirror.start.x + mirror.end.x) / 2, y: (mirror.start.y + mirror.end.y) / 2 };
       const length = distance(mirror.start, mirror.end);
       const angle = Math.atan2(mirror.end.y - mirror.start.y, mirror.end.x - mirror.start.x);
-      const art = mirror.type === "STANDARD" ? this.standardMirrorArt : mirror.type === "SPLITTER" ? this.splitterMirrorArt : this.explosiveMirrorArt;
-      const frameWidth = this.p.constrain(length * 0.32, 36, 58);
-      const glow = this.p.color(color); glow.setAlpha(35);
-      this.p.stroke(glow); this.p.strokeWeight(40); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
+      const frameWidth = this.p.constrain(length * 0.24, 30, 42);
+      const turning = this.mirrorTurnFlashes.get(mirror.id) ?? 0;
+      const glow = this.p.color(color); glow.setAlpha(48 + turning * 380);
+      this.p.stroke(glow); this.p.strokeWeight(frameWidth + 21 + turning * 15); this.p.line(mirror.start.x, mirror.start.y, mirror.end.x, mirror.end.y);
       this.p.push(); this.p.translate(center.x, center.y); this.p.rotate(angle - Math.PI / 2);
-      this.p.imageMode(this.p.CENTER);
-      this.p.image(art, 0, 0, frameWidth, length + frameWidth * 0.5);
-      if (mirror.type === "EXPLOSIVE") {
-        const pulse = 15 + Math.sin(this.p.millis() * 0.006) * 3;
-        this.p.noFill(); this.p.stroke("#b99ac6"); this.p.strokeWeight(3); this.p.circle(0, 0, pulse);
+      this.p.rectMode(this.p.CENTER);
+      this.p.noStroke(); this.p.fill(87, 59, 50, 55); this.p.ellipse(5, length * .51, frameWidth + 24, 13);
+      this.p.fill("#573b32"); this.p.rect(0, 0, frameWidth + 13, length + 22, 18);
+      this.p.fill("#e3b85f"); this.p.rect(0, 0, frameWidth + 7, length + 16, 16);
+      this.p.fill(color); this.p.rect(0, 0, frameWidth - 1, length + 8, 13);
+      this.p.fill(mirror.type === "STANDARD" ? "#cfe7df" : mirror.type === "SPLITTER" ? "#f5df9e" : "#d7c7de");
+      this.p.rect(0, 0, frameWidth - 10, length - 3, 10);
+
+      // Brass pivots make the mirror's new gameplay role visible at a glance.
+      this.p.fill("#573b32"); this.p.circle(-frameWidth * .63, 0, 12); this.p.circle(frameWidth * .63, 0, 12);
+      this.p.fill("#f4d88c"); this.p.circle(-frameWidth * .63, 0, 6); this.p.circle(frameWidth * .63, 0, 6);
+      this.p.fill(255, 255, 255, 125);
+      this.p.quad(-frameWidth * .22, -length * .38, frameWidth * .02, -length * .44, frameWidth * .18, length * .17, -frameWidth * .09, length * .27);
+      if (mirror.type === "SPLITTER") {
+        this.p.stroke("#8b622e"); this.p.strokeWeight(3); this.p.noFill();
+        this.p.line(0, -18, 0, -2); this.p.line(0, -2, -9, 13); this.p.line(0, -2, 9, 13);
+        this.p.line(-9, 13, -10, 6); this.p.line(-9, 13, -3, 11);
+        this.p.line(9, 13, 10, 6); this.p.line(9, 13, 3, 11);
+      } else if (mirror.type === "EXPLOSIVE") {
+        const pulse = 22 + Math.sin(this.p.millis() * 0.006) * 4;
+        this.p.noFill(); this.p.stroke("#8f729d"); this.p.strokeWeight(3); this.p.circle(0, 0, pulse);
+        this.p.stroke("#684a70"); this.p.strokeWeight(2);
+        for (let ray = 0; ray < 6; ray += 1) {
+          const rayAngle = ray * Math.PI / 3;
+          this.p.line(Math.cos(rayAngle) * 3, Math.sin(rayAngle) * 3, Math.cos(rayAngle) * 12, Math.sin(rayAngle) * 12);
+        }
+        this.p.noStroke(); this.p.fill("#573b32"); this.p.circle(0, 0, 6);
+      } else {
+        this.p.stroke("#6d9b8f"); this.p.strokeWeight(2); this.p.noFill();
+        this.p.arc(0, 0, 18, 18, -.7, 2.2);
       }
       this.p.pop();
     }
+  }
+
+  private drawMirrorInteractionHint(): void {
+    const mirror = this.nearestMirror(this.player, 118);
+    if (!mirror) return;
+    const center = this.mirrorCenter(mirror);
+    const pulse = 1 + Math.sin(this.p.millis() * 0.008) * .08;
+    this.p.push();
+    this.p.noFill(); this.p.stroke("#fff1c7"); this.p.strokeWeight(3);
+    this.p.circle(center.x, center.y, 62 * pulse);
+    this.p.noStroke(); this.p.fill(87, 59, 50, 225);
+    this.p.rectMode(this.p.CENTER); this.p.rect(center.x, center.y + 48, 142, 25, 4);
+    this.p.fill("#fff1c7"); this.p.textFont("Georgia"); this.p.textStyle(this.p.BOLD);
+    this.p.textAlign(this.p.CENTER, this.p.CENTER); this.p.textSize(10);
+    this.p.text("Q  ↶   AYNAYI ÇEVİR   ↷  E", center.x, center.y + 48);
+    this.p.pop();
   }
 
   private drawPreview(): void {
@@ -877,6 +1023,67 @@ export class Game {
       this.p.circle(0, 0, 48);
     }
     this.p.pop();
+
+    if (animation.fireRemaining > 0) {
+      this.drawFireEmote(combatant, aimAngle, fireProgress, ringColor);
+    }
+  }
+
+  private drawFireEmote(
+    combatant: Combatant,
+    aimAngle: number,
+    progress: number,
+    color: number[],
+  ): void {
+    const pop = Math.sin(Math.min(1, progress * 1.35) * Math.PI);
+    const fade = 1 - Math.pow(progress, 2);
+    const forward = fromAngle(aimAngle);
+    const side = { x: -forward.y, y: forward.x };
+    const origin = add(combatant.position, scale(forward, 38 + pop * 7));
+
+    this.p.push();
+    this.p.translate(origin.x, origin.y);
+    this.p.noStroke();
+    this.p.fill(255, 244, 188, 220 * fade);
+    this.p.circle(0, 0, 9 + pop * 10);
+
+    for (let index = 0; index < 3; index += 1) {
+      const direction = index - 1;
+      const starCenter = add(
+        scale(forward, 10 + pop * (12 + index * 3)),
+        scale(side, direction * (12 + pop * 8)),
+      );
+      const starSize = (3.5 + index) * pop;
+      this.p.push();
+      this.p.translate(starCenter.x, starCenter.y);
+      this.p.rotate(progress * 4 + index);
+      this.p.fill(color[0], color[1], color[2], 235 * fade);
+      this.drawStar(0, 0, starSize * 0.45, starSize, 4);
+      this.p.pop();
+    }
+
+    const labelPosition = add(scale(forward, 18 + pop * 12), scale(side, -24 - pop * 5));
+    this.p.translate(labelPosition.x, labelPosition.y - pop * 5);
+    this.p.rotate(-0.12 + Math.sin(progress * Math.PI * 2) * 0.08);
+    this.p.textFont("Georgia");
+    this.p.textStyle(this.p.BOLD);
+    this.p.textAlign(this.p.CENTER, this.p.CENTER);
+    this.p.textSize(9 + pop * 7);
+    this.p.stroke(57, 39, 29, 220 * fade);
+    this.p.strokeWeight(3);
+    this.p.fill(255, 232, 154, 255 * fade);
+    this.p.text(combatant.id === "player" ? "PİF!" : "ZAP!", 0, 0);
+    this.p.pop();
+  }
+
+  private drawStar(x: number, y: number, innerRadius: number, outerRadius: number, points: number): void {
+    this.p.beginShape();
+    for (let index = 0; index < points * 2; index += 1) {
+      const angle = -Math.PI / 2 + index * Math.PI / points;
+      const radius = index % 2 === 0 ? outerRadius : innerRadius;
+      this.p.vertex(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+    }
+    this.p.endShape(this.p.CLOSE);
   }
 
   private drawHud(): void {
@@ -911,8 +1118,8 @@ export class Game {
     this.p.fill("#e6d4ad"); this.p.stroke("#c09349"); this.p.strokeWeight(7); this.p.rect(cx - 290, cy - 125, 580, 250, 12);
     this.p.stroke("#725334"); this.p.strokeWeight(2); this.p.noFill(); this.p.rect(cx - 276, cy - 111, 552, 222, 8);
     this.p.noStroke(); this.p.textFont("Georgia"); this.p.textAlign(this.p.CENTER, this.p.CENTER); this.p.fill(this.status === "WON" ? "#426f64" : "#9a4f58"); this.p.textSize(54); this.p.textStyle(this.p.BOLD);
-    this.p.text(this.status === "WON" ? "PERDE SENİN" : "PERDE KAPANDI", cx, cy - 34);
-    this.p.textStyle(this.p.NORMAL); this.p.fill("#5c4632"); this.p.textSize(18); this.p.text("Yeni bir düello için tıkla veya Space'e bas", cx, cy + 42);
+    this.p.text(this.status === "WON" ? "KAZANDIN" : "KAYBETTİN", cx, cy - 34);
+    this.p.textStyle(this.p.NORMAL); this.p.fill("#5c4632"); this.p.textSize(18); this.p.text("Tekrar oynamak için tıkla veya Space'e bas", cx, cy + 42);
   }
 
   private pathLength(points: Vector2[]): number {
