@@ -30,16 +30,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Use GitHub Actions as the Pages source
-        uses: actions/github-script@v8
-        with:
-          script: |
-            await github.rest.repos.updatePagesSite({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              build_type: "workflow",
-            });
-
       - name: Set up GitHub Pages
         uses: actions/configure-pages@v5
 
