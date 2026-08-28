@@ -1,0 +1,21 @@
+{
+  "name": "mirror-mayhem",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "p5": "^2.3.2"
+  },
+  "devDependencies": {
+    "@types/p5": "^1.7.7",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}

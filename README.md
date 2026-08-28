@@ -11,13 +11,16 @@ npm run dev
 
 ## Kontroller
 
+- Kurulum ekranında ayna veya mobilyayı sol tuşla sürükleyerek yerleştirme
+- Kurulum ekranında seçili aynayı Q / E ile döndürme
+- Paneli Gizle: oyun alanının sol tarafına erişmek için kurulum panelini daraltma
 - WASD veya ok tuşları: hareket
 - Mouse: nişan ve büyü yolu ön izlemesi
 - Space veya sol tık: ateş
 - M: müziği ve efektleri aç/kapat
 - F1: fizik debug görünümü
 
-Her yeni düelloda mobilyalar ve aynalar yeniden konumlandırılır; iki rakip illüzyonist de tüy, ay ve yıldız armalarından farklı birini taşır. Gümüş aynalar ışığı standart biçimde yansıtır, kehribar aynalar yansıyan büyüyü üç kola ayırır, mor lanetli aynalar ise ışığın bittiği noktada alan patlaması oluşturur. Aynalar aynı zamanda hareketi engelleyen fiziksel nesnelerdir. Işık büyüleri arenada belirli bir hızla ilerler ve hareketli hedefe yalnızca temas ettiğinde hasar verir; bu nedenle gelen büyüden kaçılabilir.
+Kurulum ekranı otomatik bir arena taslağı üretir; mobilyalar ve aynalar düello başlamadan önce doğrudan oyun alanında elle taşınabilir, aynalar döndürülebilir. “Yerleşimi yenile” yeni bir otomatik taslak üretir. Varsayılan koridorlu labirent düzeni, balo salonunu üç şaşırtmalı geçide böler; kurulum ekranından daha açık veya kaotik düzenler de seçilebilir. İki rakip illüzyonist tüy, ay ve yıldız armalarından farklı birini taşır. Gümüş aynalar ışığı standart biçimde yansıtır, kehribar aynalar yansıyan büyüyü üç kola ayırır, mor lanetli aynalar ise ışığın bittiği noktada alan patlaması oluşturur. Aynalar aynı zamanda hareketi engelleyen fiziksel nesnelerdir. Işık büyüleri arenada belirli bir hızla ilerler ve hareketli hedefe yalnızca temas ettiğinde hasar verir; bu nedenle gelen büyüden kaçılabilir.
 
 ## Görsel tasarım
 
@@ -27,7 +30,7 @@ Her yeni düelloda mobilyalar ve aynalar yeniden konumlandırılır; iki rakip i
 - Arena: simetrik balo salonu, baklava taş zemin, pirinç çerçeveler, kadife perdeler ve merkez madalyonu
 - Seçilen konsept panosu: [`art/theme-concepts/02-enchanted-manor.png`](art/theme-concepts/02-enchanted-manor.png)
 
-Oyunda kullanılan karakter ve engeller p5.js ile projeye özel olarak prosedürel çizilir. Üçüncü taraf sprite, oyun karakteri, marka, logo veya stok görsel kullanılmaz. Konsept panosu da bu proje için sıfırdan yapay zekâ ile oluşturulmuştur; çalışan oyun bu görsele çalışma zamanında bağımlı değildir.
+Oyunda kullanılan balo salonu, illüzyonistler, aynalar ve mobilyalar seçilen konsept panosundan türetilmiş projeye özel PNG varlıklarıdır ve `public/assets/manor` altında oyuna doğrudan yüklenir. Üçüncü taraf sprite, oyun karakteri, marka, logo veya stok görsel kullanılmaz. Işınlar, HUD ve hareketli efektler p5.js ile çalışma anında çizilir.
 
 ## Ses ve lisans
 
